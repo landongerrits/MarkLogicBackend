@@ -1,0 +1,75 @@
+version: '3.6'
+
+services:
+
+  users:
+    build:
+      context: ./services/users
+      dockerfile: Dockerfile-dev
+    volumes:
+      - './services/users:/usr/src/app'
+    ports:
+      - 5001:5000
+    environment:
+      - FLASK_ENV=development
+      - APP_SETTINGS=project.config.DevelopmentConfig
+      - DATABASE_URL=postgres://postgres:postgres@users-db:5432/users_dev
+      - DATABASE_TEST_URL=postgres://postgres:postgres@users-db:5432/users_test
+      - SECRET_KEY=${CAPSTONE_SECRET_KEY:-my_precious}
+      - PYTHONDONTWRITEBYTECODE=1
+    depends_on:
+      - users-db
+
+  users-db:
+    build:
+      context: ./services/users/project/db
+      dockerfile: Dockerfile
+    ports:
+      - 5435:5432
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+
+  file_system:
+    build:
+      context: ./services/file_system
+      dockerfile: Dockerfile-dev
+    volumes:
+      - './services/file_system:/usr/src/app'
+    ports:
+      - 5005:5000
+    environment:
+      - FLASK_ENV=development
+      - APP_SETTINGS=project.config.DevelopmentConfig
+      - S3_UPLOAD=capstone.upload
+      - S3_CLASSIFIED=capstone.classified
+      - S3_STATIC=capstone.static
+      - UPLOAD_FOLDER=/home/ec2-user/MarkLogic/services/file_system/project/api/uploadFolder
+      - DATABASE_URL=postgres://postgres:postgres@users-db:5432/users_dev
+      - DATABASE_TEST_URL=postgres://postgres:postgres@users-db:5432/users_test
+      - PYTHONDONTWRITEBYTECODE=1
+
+
+  nginx:
+    build:
+      context: ./services/nginx
+      dockerfile: Dockerfile-dev
+    restart: always
+    ports:
+      - 80:80
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
+    depends_on:
+      - users
+      - file_system
+
+  machine_learning:
+    build:
+      context: ./services/machine_learning
+      dockerfile: Dockerfile-dev
+    volumes:
+      - './services/machine_learning:/usr/src/app'
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
+    ports:
+      - 3030:3031
